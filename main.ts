@@ -17,8 +17,6 @@ if (!existsSync(src)) {
   process.exit(1);
 }
 
-// Refuse a placeholder or non-YouTube address: the entry is the published
-// Short, so a bad URL must fail loudly here instead of being submitted.
 let url;
 try {
   url = JSON.parse(readFileSync(src, "utf8")).url;
@@ -26,11 +24,25 @@ try {
   console.error(`VIDEO.json in ${botDir} is not valid JSON with a url field`);
   process.exit(1);
 }
-if (typeof url !== "string" || url.includes("PLACEHOLDER") || !/^https:\/\/(www\.)?youtube\.com\/shorts\/[A-Za-z0-9_-]{11}/.test(url)) {
+
+// Refuse a placeholder or non-YouTube address: the entry is the published
+// Short, so a bad URL must fail loudly here instead of being submitted.
+// The video ID must be exactly 11 characters and nothing may follow it
+// except an optional trailing slash — a longer path, a query string, or a
+// fragment would point at a different (or non-existent) video.
+const shortMatch = typeof url === "string"
+  ? url.match(/^https:\/\/(www\.)?youtube\.com\/shorts\/([A-Za-z0-9_-]{11})\/?$/)
+  : null;
+if (url != null && typeof url === "string" && url.includes("PLACEHOLDER")) {
+  console.error(`VIDEO.json url is a placeholder, not a published Short: ${url}`);
+  process.exit(1);
+}
+if (!shortMatch) {
   console.error(`VIDEO.json url is not a public YouTube Short: ${String(url)}`);
   process.exit(1);
 }
+const videoId = shortMatch[2];
 
 mkdirSync(outDir, { recursive: true });
 copyFileSync(src, join(outDir, "VIDEO.json"));
-console.log(`Copied ${src} -> ${join(outDir, "VIDEO.json")} (${url})`);
+console.log(`Copied ${src} -> ${join(outDir, "VIDEO.json")} (video ${videoId})`);
